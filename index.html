@@ -698,13 +698,31 @@ body {
 .eyebrow { font: 600 11px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .bez { font: 600 15px/1.1 var(--display); letter-spacing: .02em; display: flex; align-items: center; gap: 8px; }
 .swatch { width: 10px; height: 10px; border-radius: 2px; background: var(--muted); flex: none; }
-.teil { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.teil { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex-wrap: wrap; cursor: pointer; }
+.teil .vt { font: 600 15px/1 var(--body); color: var(--muted); white-space: nowrap; }
+.teil .vt b { font: 700 15px/1 var(--mono); color: var(--fg); }
+.tag { font: 600 11px/1 var(--body); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 5px; }
+.tag.green { color: var(--green); border: 1px solid color-mix(in srgb, var(--green) 55%, transparent); }
+.row1 { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.next .head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.next .head .eyebrow { color: var(--c); }
+.gpswarn { font: 500 12.5px/1.3 var(--body); color: var(--warn); }
+.mini { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font: 600 15px/1.2 var(--display); }
+.mini b { font: 700 18px/1 var(--mono); color: var(--calm); }
+.plate.is-mini .row1, .plate.is-mini .addr, .plate.is-mini .next, .plate.is-mini .gpswarn { display: none !important; }
+.plate:not(.is-mini) .mini { display: none; }
+.plate.is-mini .teil .name { font-size: 24px; }
+.fold { margin-left: auto; font: 600 12px/1 var(--body); color: var(--muted); background: none; border: 0; padding: 4px; cursor: pointer; }
+.nbpill { --c: #8fb6e8; transform: translate(-50%, -50%); display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap;
+  font: 600 13px/1 var(--body); color: #fff; background: rgba(13,15,18,.86); border: 1.5px solid var(--c); border-radius: 999px; padding: 6px 10px; cursor: pointer; }
+.nbpill b { font: 700 13px/1 var(--mono); color: var(--c); }
+.nbpill.goal { background: #1f5fa8; border-color: #fff; --c: #fff; }
 .teil .nr { font: 700 22px/1 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 .teil .name { font: 700 clamp(30px, 9vw, 44px)/1 var(--display); text-wrap: balance; overflow-wrap: anywhere; min-width: 0; }
 
 .next {
   --c: var(--calm);
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px 12px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 12px;
   padding: 10px 12px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
   color: var(--c); transition: border-color .3s, color .3s;
 }
@@ -724,6 +742,17 @@ body {
 .bar i { display: block; height: 100%; width: 0; background: var(--c); transition: width .4s ease, background .3s; }
 
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.top-right { display: flex; align-items: center; gap: 10px; }
+.addrBtn { font: 600 13px/1 var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.addrBtn svg { width: 14px; height: 14px; }
+.addrBtn[aria-busy="true"] { color: var(--muted); }
+.addrBtn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.addr { display: grid; gap: 2px; padding: 8px 12px; border-left: 3px solid var(--calm); background: var(--bg); border-radius: 0 8px 8px 0; }
+.addr .street { font: 600 18px/1.2 var(--display); letter-spacing: .01em; overflow-wrap: anywhere; }
+.addr .city { font: 500 13px/1.3 var(--body); color: var(--muted); }
+.addr .street small { font: 500 14px/1.2 var(--body); color: var(--muted); margin-left: 6px; letter-spacing: 0; }
+.addr .area { font: 600 13px/1.3 var(--body); color: var(--green); }
+.addr[data-far="true"] { border-left-color: var(--warn); }
 .nbs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-inline: -2px; padding: 2px; }
 .nbs::-webkit-scrollbar { display: none; }
 .nbs .lab { font: 600 11px/1 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); align-self: center; white-space: nowrap; }
@@ -782,18 +811,24 @@ body {
 .leaflet-bar a { background: var(--panel) !important; color: var(--fg) !important; border-color: var(--line) !important; }
 </style>
 
-<header class="plate" aria-live="polite">
-  <div class="row" style="justify-content: space-between;">
+<header class="plate" id="plate" aria-live="polite">
+  <div class="row1">
     <span class="bez"><span class="swatch" id="swatch"></span><span id="bez">Stadtbezirk</span></span>
-    <span class="eyebrow" id="mode">Beispielpunkt</span>
+    <button class="addrBtn" id="addrBtn" type="button" aria-busy="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"/></svg><span id="addrBtnTxt">Adresse</span></button>
   </div>
-  <div class="teil"><span class="nr" id="tnr"></span><span class="name" id="tname">Lehen</span></div>
+  <div class="teil" id="teilRow" title="Antippen zum Ein- und Ausklappen">
+    <span class="nr" id="tnr"></span><span class="name" id="tname">Lehen</span><span class="vt" id="vt"></span>
+    <button class="fold" id="fold" type="button" aria-label="Kopfbereich einklappen">▴</button>
+  </div>
+  <div class="addr" id="addr" hidden><span class="street" id="addrStreet"></span><span class="area" id="addrArea" hidden></span><span class="city" id="addrCity"></span></div>
   <div class="next" id="next">
-    <button class="arrowBtn" id="arrowBtn" type="button" aria-label="Richtung um 45 Grad drehen"><svg class="arrow" id="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L20 21 L12 16.5 L4 21 Z" fill="currentColor"/></svg></button>
     <div style="min-width:0">
-      <div class="eyebrow"><span id="nextLbl">Nächster Stadtteil</span><button class="clear" id="clearTarget" type="button" hidden>Ziel aufheben</button></div>
+      <div class="head">
+        <span class="eyebrow" id="nextLbl">Geradeaus</span>
+        <button class="clear" id="rotBtn" type="button" hidden>↻ Richtung drehen</button>
+        <button class="clear" id="clearTarget" type="button" hidden>✕ Ziel beenden</button>
+      </div>
       <div class="to" id="nextTo">–</div>
-      <div class="dir" id="nextDir"></div>
     </div>
     <div>
       <div class="dist"><span id="nextD">–</span><small>m</small></div>
@@ -801,9 +836,8 @@ body {
     </div>
     <div class="bar" aria-hidden="true"><i id="bar"></i></div>
   </div>
-  <div class="chips" id="chips"></div>
-  <div class="nbs" id="nbs" aria-label="Nachbar-Stadtteile, antippen um als Ziel zu wählen"></div>
-  <div class="src" id="src">Tippe auf die Karte, starte den Live-Standort oder probiere den Testlauf.</div>
+  <div class="mini" id="mini"><span id="miniTxt"></span><b id="miniD"></b></div>
+  <div class="gpswarn" id="gpswarn" hidden></div>
   <div class="msg" id="msg" hidden></div>
 </header>
 
@@ -941,7 +975,7 @@ const dirName = b => DIRS[Math.round(b / 45) % 8];
 // ---------- map ----------
 const map = L.map("map", { zoomControl: true, preferCanvas: true }).setView([DEMO[1], DEMO[0]], 16);
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19, className: "tiles-dark", attribution: "&copy; OpenStreetMap · Grenzen: Stadt Stuttgart, Open Data"
+  maxZoom: 19, className: "tiles-dark", attribution: "&copy; OpenStreetMap (Karte, Adressen) · Grenzen: Stadt Stuttgart, Open Data"
 }).addTo(map);
 const ll = g => g.map(poly => poly.map(r => r.map(c => [c[1], c[0]])));
 const teilLayers = {};
@@ -1039,38 +1073,45 @@ function setTarget(t, pt) {
   targetLayer.setLatLngs(t ? ll(t.g) : []);
   targetStart = t ? nearestOnBoundary(pt, t.g).d : null;
   $("clearTarget").hidden = !t;
-  if (t) toast(`Ziel: ${t.nr} ${t.name}`, `${Math.round(targetStart)} m Luftlinie bis zur Grenze`);
+  if (t) toast(`Ziel: ${t.name}`, `${Math.round(targetStart)} m bis zur Grenze`);
 }
+// nächste Stadtteile mit kürzester Entfernung (egal welcher Bezirk)
 function neighbours(pt, current) {
-  return GEO.teile.filter(t => t !== current && bboxDist(pt, t.bb) < 900)
-    .map(t => ({ t, d: nearestOnBoundary(pt, t.g).d })).filter(x => x.d < 900)
-    .sort((a, b) => a.d - b.d).slice(0, 6);
+  return GEO.teile.filter(t => t !== current && bboxDist(pt, t.bb) < 800)
+    .map(t => { const n = nearestOnBoundary(pt, t.g); return { t, d: n.d, p: n.p }; })
+    .filter(x => x.d < 800).sort((a, b) => a.d - b.d).slice(0, 5);
 }
-let nbKey = "";
-function renderNeighbours(list) {
-  const box = $("nbs"), key = list.map(x => x.t.nr).join(",");
-  if (key !== nbKey) {
-    nbKey = key; box.replaceChildren();
-    if (list.length) { const l = document.createElement("span"); l.className = "lab"; l.textContent = "Ziel wählen"; box.append(l); }
-    list.forEach(x => {
-      const b = document.createElement("button"); b.type = "button"; b.className = "nb"; b.dataset.nr = x.t.nr;
-      b.innerHTML = `${x.t.nr} ${x.t.name}<b></b>`; box.append(b);
-    });
+// Meter-Schilder direkt an den Nachbar-Stadtteilen auf der Karte
+const pills = new Map();
+function renderPills(pt, list) {
+  const keep = new Set();
+  for (const x of list) {
+    const nr = x.t.nr; keep.add(nr);
+    const away = x.d > 1 ? [(x.p[0] - pt[0]) / x.d, (x.p[1] - pt[1]) / x.d] : [0, 0];
+    const pos = [x.p[0] + away[0] * 22, x.p[1] + away[1] * 22];   // 22 m hinter der Grenze, im Nachbar-Stadtteil
+    const html = `<div class="nbpill${target === x.t ? " goal" : ""}">${esc(x.t.name)} <b>${Math.round(x.d)} m</b></div>`;
+    let m = pills.get(nr);
+    if (!m) {
+      m = L.marker([pos[1], pos[0]], { icon: L.divIcon({ className: "", html, iconSize: null }), keyboard: false, zIndexOffset: 500 }).addTo(map);
+      m.on("click", ev => { L.DomEvent.stop(ev); const t = GEO.teile.find(o => o.nr === nr); setTarget(target === t ? null : t, lastPt); render(lastPt, lastSource, lastAcc, false); });
+      pills.set(nr, m);
+    } else {
+      m.setLatLng([pos[1], pos[0]]);
+      const el = m.getElement(); if (el) el.innerHTML = html;
+    }
   }
-  list.forEach(x => {
-    const b = box.querySelector(`[data-nr="${x.t.nr}"]`);
-    if (b) { b.querySelector("b").textContent = Math.round(x.d) + " m"; b.setAttribute("aria-pressed", String(target === x.t)); }
-  });
+  for (const [nr, m] of pills) if (!keep.has(nr)) { m.remove(); pills.delete(nr); }
 }
 
 function render(pt, source, accuracy, moving) {
   lastPt = pt;
   const r = locate(pt);
   if (target && r.teil === target) {
-    toast(`Ziel erreicht: ${target.nr} ${target.name}`, r.viertel ? `Stadtviertel ${r.viertel.nr}` : "");
+    toast(`Ziel erreicht: ${target.name}`, "");
     try { navigator.vibrate && navigator.vibrate([120, 60, 120, 60, 120]); } catch (e) {}
     setTarget(null, pt);
   }
+  if (addrCache && !$("addr").hidden && distM(addrCache.pt, pt) > 25) $("addr").hidden = true;
   me.setLatLng([pt[1], pt[0]]);
   hdgMarker.setLatLng([pt[1], pt[0]]);
   const mh = document.getElementById("meHdg"); if (mh) mh.style.transform = `rotate(${Math.round(heading)}deg)`;
@@ -1079,98 +1120,81 @@ function render(pt, source, accuracy, moving) {
   highlighted = r.teil ? teilLayers[r.teil.nr] : null;
   highlightedNr = r.teil ? r.teil.nr : null;
   if (highlighted) { highlighted.setStyle({ fillOpacity: .55 }); teilOutlines[highlightedNr].setStyle({ weight: 3.5, color: "#ffffff" }).bringToFront(); }
-  $("mode").textContent = source;
 
-  // crossing notices (only while moving: live or Testlauf)
+  // nur Stadtteil-Wechsel melden
   if (moving && r.teil && lastTeil && r.teil.nr !== lastTeil) {
-    toast(`Neuer Stadtteil: ${r.teil.nr} ${r.teil.name}`, r.viertel ? `Stadtviertel ${r.viertel.nr}` : "");
+    toast(`Neuer Stadtteil: ${r.teil.name}`, "");
     try { navigator.vibrate && navigator.vibrate([90, 50, 90]); } catch (e) {}
     history = [];
-  } else if (moving && r.viertel && lastViertel && r.viertel.nr !== lastViertel) {
-    toast(`Neues Stadtviertel: ${r.viertel.nr}`, r.teil ? `weiterhin ${r.teil.name}` : "");
-    try { navigator.vibrate && navigator.vibrate(60); } catch (e) {}
   }
   lastTeil = r.teil ? r.teil.nr : null; lastViertel = r.viertel ? r.viertel.nr : null;
 
-  const chips = $("chips"); chips.replaceChildren();
-  if (r.teil) {
-    $("swatch").style.background = COL[r.teil.b];
-    $("bez").textContent = `Stadtbezirk ${r.bez ? r.bez.nr + " " + r.bez.name : ""}`;
-    $("tnr").textContent = r.teil.nr; $("tname").textContent = r.teil.name;
-    if (r.viertel) {
-      chips.append(chip(`Viertel <b>${r.viertel.nr}</b>`));
-      chips.append(r.viertel.nr.endsWith("9") ? chip("…9 · überwiegend unbewohnt", "green") : chip("Wohnviertel"));
-      if (r.vborder)
-        chips.append(chip(`Nächstes Viertel ${r.vborder.other.nr}: <b>${Math.round(r.vborder.d)} m</b>`));
-    }
-    let b, goal = false;
-    if (target) {
-      const n = nearestOnBoundary(pt, target.g);
-      b = { d: n.d, p: n.p, bearing: bearingTo(pt, n.p), other: target, otherBez: null }; goal = true;
-      $("nextLbl").textContent = "Dein Ziel";
-      $("nextDir").textContent = `Richtung ${dirName(b.bearing)} · Luftlinie` + (b.other.b !== r.teil.b ? " · anderer Bezirk" : "");
-      $("arrow").style.transform = `rotate(${Math.round(b.bearing)}deg)`;
-    } else {
-      const a = castAhead(pt, heading);
-      b = a ? { d: a.d, p: a.p, bearing: heading, other: a.other, otherBez: null } : { d: r.border.d, p: r.border.p, bearing: heading, other: r.border.other };
-      $("nextLbl").textContent = headingSrc === "Bewegung" ? "In Bewegungsrichtung" : headingSrc === "Kompass" ? "In Blickrichtung" : "In Pfeilrichtung";
-      $("nextDir").textContent = `Kurs ${Math.round(heading)}° ${dirName(heading)} · ${headingSrc === "manuell" ? "Pfeil antippen zum Drehen" : headingSrc}` + (b.other && b.other.b !== r.teil.b ? " · anderer Bezirk" : "");
-      $("arrow").style.transform = `rotate(${Math.round(heading)}deg)`;
-      if (r.border && r.border.other) chips.append(chip(`Kürzeste Grenze: ${r.border.other.name} <b>${Math.round(r.border.d)} m</b>`));
-    }
+  // oben: Bezirk (live), Stadtteil, Viertel
+  if (r.bez) { $("swatch").style.background = COL[r.bez.nr]; $("bez").textContent = `Stadtbezirk ${r.bez.nr} ${r.bez.name}`; }
+  else { $("swatch").style.background = "var(--muted)"; $("bez").textContent = "Außerhalb von Stuttgart"; }
+  $("tnr").textContent = r.teil ? r.teil.nr : "";
+  $("tname").textContent = r.teil ? r.teil.name : "Kein Stadtgebiet";
+  $("vt").innerHTML = r.viertel ? `Viertel <b>${r.viertel.nr}</b>` + (r.viertel.nr.endsWith("9") ? ` <span class="tag green">Grünfläche</span>` : "") : "";
+
+  // Kasten: geradeaus bis zum nächsten Stadtteil, oder Luftlinie zum Ziel
+  let b = null;
+  if (target) {
+    const n = nearestOnBoundary(pt, target.g);
+    b = { d: n.d, p: n.p, other: target };
+    $("nextLbl").textContent = `Ziel · ${dirName(bearingTo(pt, n.p))}`;
+  } else {
+    const a = castAhead(pt, heading);
+    if (a && (a.other || r.teil)) b = { d: a.d, p: a.p, other: a.other };
+    const how = headingSrc === "Bewegung" ? "Geradeaus" : headingSrc === "Kompass" ? "Blickrichtung" : "Pfeilrichtung";
+    $("nextLbl").textContent = `${how} · ${dirName(heading)}`;
+  }
+  $("rotBtn").hidden = !!target || headingSrc !== "manuell";
+  if (b) {
     $("next").hidden = false;
-    $("next").dataset.goal = String(goal);
-    $("nextTo").textContent = b.other ? `${b.other.nr} ${b.other.name}` : "Stadtgrenze";
+    $("next").dataset.goal = String(!!target);
+    $("nextTo").textContent = b.other ? b.other.name : "Stadtgrenze";
     animateDistance(b.d);
-    const prog = goal ? (targetStart > 0 ? 1 - b.d / targetStart : 1) : 1 - b.d / 300;
+    const prog = target ? (targetStart > 0 ? 1 - b.d / targetStart : 1) : 1 - b.d / 300;
     $("bar").style.width = Math.max(2, Math.min(100, prog * 100)) + "%";
     $("next").dataset.state = b.d < 15 ? "edge" : b.d < 50 ? "near" : "calm";
     $("trend").textContent = trendText(b.d, moving);
     borderLine.setLatLngs([[pt[1], pt[0]], [b.p[1], b.p[0]]]);
     borderPt.setLatLng([b.p[1], b.p[0]]).addTo(map);
-    renderNeighbours(neighbours(pt, r.teil));
+    $("miniTxt").textContent = `${$("nextLbl").textContent.split(" · ")[0]}: ${b.other ? b.other.name : "Stadtgrenze"}`;
+    $("miniD").textContent = `${Math.round(b.d)} m`;
   } else {
-    $("swatch").style.background = "var(--muted)"; $("tnr").textContent = "";
-    $("bez").textContent = "Außerhalb von Stuttgart"; $("tname").textContent = "Kein Stadtgebiet";
-    let b = r.border;
-    if (target) { const n = nearestOnBoundary(pt, target.g); b = { d: n.d, p: n.p, bearing: bearingTo(pt, n.p), other: target }; }
-    else { const a = castAhead(pt, heading); if (a && a.other) b = { d: a.d, p: a.p, bearing: heading, other: a.other }; }
-    if (b) {
-      $("next").hidden = false; $("next").dataset.goal = String(!!target);
-      $("nextLbl").textContent = target ? "Dein Ziel" : "Nächster Stadtteil";
-      $("nextTo").textContent = `${b.other.nr} ${b.other.name}`;
-      $("nextDir").textContent = `Richtung ${dirName(b.bearing)} · Luftlinie · ${GEO.bez.find(x => x.nr === b.other.b).name}`;
-      $("arrow").style.transform = `rotate(${Math.round(b.bearing)}deg)`;
-      animateDistance(b.d);
-      $("bar").style.width = Math.max(2, Math.min(100, (target && targetStart ? 1 - b.d / targetStart : 1 - b.d / 2000) * 100)) + "%";
-      $("next").dataset.state = b.d < 15 ? "edge" : b.d < 50 ? "near" : "calm";
-      $("trend").textContent = trendText(b.d, moving);
-      borderLine.setLatLngs([[pt[1], pt[0]], [b.p[1], b.p[0]]]);
-      borderPt.setLatLng([b.p[1], b.p[0]]).addTo(map);
-      renderNeighbours(neighbours(pt, null));
-    } else { $("next").hidden = true; borderLine.setLatLngs([]); borderPt.remove(); renderNeighbours([]); }
+    $("next").hidden = true; borderLine.setLatLngs([]); borderPt.remove();
+    $("miniTxt").textContent = ""; $("miniD").textContent = "";
   }
-  $("src").textContent = accuracy
-    ? `GPS-Genauigkeit ±${Math.round(accuracy)} m` + (r.border && r.border.d < accuracy ? " · Grenze liegt innerhalb der Ungenauigkeit" : "")
-    : (source === "Testlauf" ? "Simulierter Spaziergang über die Heusteigstraße nach Norden. Die Meter gelten in Laufrichtung." : "Die Meter gelten in Pfeilrichtung. Live nutzt deine Bewegungsrichtung, im Stehen den Kompass.");
+
+  // Meter zu den nächsten Stadtteilen direkt auf der Karte
+  renderPills(pt, neighbours(pt, r.teil));
+
+  // GPS nur melden, wenn es ungenau ist
+  const warn = accuracy && accuracy > 20;
+  $("gpswarn").hidden = !warn;
+  if (warn) $("gpswarn").textContent = `GPS ungenau (±${Math.round(accuracy)} m). Meter nahe einer Grenze können abweichen.`;
 }
 
 map.on("click", e => {
   const p = [e.latlng.lng, e.latlng.lat];
   if (watchId !== null || simTimer !== null) {
     const t = find(GEO.teile, p), cur = find(GEO.teile, lastPt);
-    if (t && t !== cur) { setTarget(t, lastPt); render(lastPt, $("mode").textContent, 0, false); }
+    if (t && t !== cur) { setTarget(target === t ? null : t, lastPt); render(lastPt, lastSource, lastAcc, false); }
     return;
   }
   history = []; lastSource = "Kartenpunkt"; lastAcc = 0; render(p, "Kartenpunkt");
 });
-$("nbs").addEventListener("click", e => {
-  const b = e.target.closest(".nb"); if (!b) return;
-  const t = GEO.teile.find(x => x.nr === b.dataset.nr);
-  setTarget(target === t ? null : t, lastPt);
-  render(lastPt, $("mode").textContent, 0, false);
-});
-$("clearTarget").addEventListener("click", () => { setTarget(null, lastPt); render(lastPt, $("mode").textContent, 0, false); });
+$("clearTarget").addEventListener("click", () => { setTarget(null, lastPt); render(lastPt, lastSource, lastAcc, false); });
+function toggleFold(ev) {
+  if (ev && ev.target.closest("button:not(#fold)")) return;
+  const mini = $("plate").classList.toggle("is-mini");
+  $("fold").textContent = mini ? "▾" : "▴";
+  $("fold").setAttribute("aria-label", mini ? "Kopfbereich ausklappen" : "Kopfbereich einklappen");
+  setTimeout(() => map.invalidateSize(), 50);
+}
+$("teilRow").addEventListener("click", toggleFold);
+$("mini").addEventListener("click", toggleFold);
 
 // ---------- live GPS ----------
 let watchId = null, follow = true, wake = null;
@@ -1211,6 +1235,94 @@ function stopLive() {
   try { wake && wake.release(); } catch (e) {} wake = null;
 }
 
+// ---------- Adresse (nur auf Knopfdruck, über OpenStreetMap Nominatim) ----------
+// Regeln: Straße + PLZ immer; Hausnummer nur als "bei Nr." wenn GPS ≤ ±20 m und Adresse ≤ 30 m entfernt;
+// Straße weiter als 50 m entfernt -> "Nächste Straße … ca. X m entfernt"; Wald-/Parkname, wenn man darin steht.
+let addrBusy = false, addrCache = null;
+const NOMI = "https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=de&polygon_geojson=1&polygon_threshold=0.00002";
+const AREA_CATS = new Set(["natural", "landuse", "leisure", "boundary", "tourism"]);
+const AREA_TYPES = { wood: "Wald", forest: "Wald", nature_reserve: "Naturschutzgebiet", protected_area: "Schutzgebiet", park: "Park",
+  garden: "Garten", grassland: "Wiese", meadow: "Wiese", heath: "Heide", vineyard: "Weinberg", orchard: "Streuobstwiese",
+  scrub: "Gebüsch", cemetery: "Friedhof", allotments: "Kleingärten", recreation_ground: "Freizeitgelände", zoo: "Zoo" };
+function geomToRings(geo) {
+  if (!geo || !geo.type) return null;
+  if (geo.type === "Point") return { pt: geo.coordinates };
+  if (geo.type === "LineString") return { lines: [[geo.coordinates]] };
+  if (geo.type === "MultiLineString") return { lines: [geo.coordinates] };
+  if (geo.type === "Polygon") return { poly: [geo.coordinates] };
+  if (geo.type === "MultiPolygon") return { poly: geo.coordinates };
+  return null;
+}
+// metres from pt to the found object (0 when standing inside an area)
+function geoDist(pt, geo, fallback) {
+  const r = geomToRings(geo);
+  if (!r) return fallback ? distM(pt, fallback) : Infinity;
+  if (r.pt) return distM(pt, r.pt);
+  if (r.lines) return nearestOnBoundary(pt, r.lines).d;
+  return inGeom(pt, r.poly) ? 0 : nearestOnBoundary(pt, r.poly).d;
+}
+const round10 = m => Math.max(10, Math.round(m / 10) * 10);
+async function nomi(params) {
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 8000);
+  try {
+    const res = await fetch(NOMI + params, { signal: ctl.signal, headers: { "Accept": "application/json" } });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return await res.json();
+  } finally { clearTimeout(to); }
+}
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function showAddr(st, city, area, far) {
+  $("addrStreet").innerHTML = st; $("addrCity").textContent = city;
+  $("addrArea").textContent = area || ""; $("addrArea").hidden = !area;
+  $("addr").dataset.far = String(!!far); $("addr").hidden = false;
+}
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+$("addrBtn").addEventListener("click", async () => {
+  if (addrBusy) return;
+  const pt = lastPt;
+  if (addrCache && distM(addrCache.pt, pt) < 10) { showAddr(addrCache.st, addrCache.city, addrCache.area, addrCache.far); return; }
+  addrBusy = true; $("addrBtn").setAttribute("aria-busy", "true"); $("addrBtnTxt").textContent = "Sucht …";
+  showAddr("Adresse wird gesucht …", "", "", false);
+  const q = `&lat=${pt[1].toFixed(6)}&lon=${pt[0].toFixed(6)}`;
+  const gpsAcc = lastSource === "Live" ? (lastAcc || 0) : 0;
+  try {
+    // 1) nächste Adresse bzw. Straße
+    const j = await nomi(q + "&zoom=18&addressdetails=1");
+    const a = j.address || {};
+    let road = a.road || a.pedestrian || a.footway || a.cycleway || a.path || a.bridleway || a.track || a.square;
+    if (!road && j.category === "highway" && j.name) road = j.name;
+    const d = geoDist(pt, j.geojson, j.lat ? [+j.lon, +j.lat] : null);
+    let area = "";
+    if (AREA_CATS.has(j.category) && j.name && d === 0) area = `${AREA_TYPES[j.type] || "Gebiet"}: ${j.name}`;
+    // 2) Wald/Park, in dem man steht (nur wenn keine Hausadresse direkt daneben)
+    if (!area && !(a.house_number && d <= 30)) {
+      try {
+        await wait(1100);                                   // Nominatim: max. 1 Anfrage pro Sekunde
+        const n = await nomi(q + "&zoom=15&layer=natural,poi");
+        if (n && n.name && AREA_CATS.has(n.category) && geoDist(pt, n.geojson, null) === 0)
+          area = `${AREA_TYPES[n.type] || "Gebiet"}: ${n.name}`;
+      } catch (e) { /* Zusatzinfo, Fehler ignorieren */ }
+    }
+    let st, far = false;
+    if (!road) { st = "Keine Straße in der Nähe"; far = true; }
+    else if (d > 50) { st = `Nächste Straße: ${esc(road)} <small>ca. ${round10(d)} m entfernt</small>`; far = true; }
+    else {
+      const showNr = a.house_number && d <= 30 && gpsAcc <= 20;
+      st = esc(road) + (showNr ? ` <small>bei Nr. ${esc(a.house_number)}</small>` : "");
+    }
+    const city = [a.postcode, a.city || a.town || a.village || a.municipality].filter(Boolean).join(" ")
+      + (gpsAcc ? ` · GPS ±${Math.round(gpsAcc)} m` : "") + (gpsAcc > 20 ? " · zu ungenau für Hausnummer" : "");
+    addrCache = { pt, st, city, area, far };
+    showAddr(st, city, area, far);
+  } catch (e) {
+    showAddr("Adresse gerade nicht abrufbar", location.protocol === "https:" && location.hostname.endsWith("github.io")
+      ? "Keine Verbindung zum Adressdienst. Prüfe das Internet und tippe erneut."
+      : "In dieser Ansicht ist der Adressdienst gesperrt. In der GitHub-Version funktioniert es.", "", true);
+  } finally {
+    setTimeout(() => { addrBusy = false; $("addrBtn").setAttribute("aria-busy", "false"); $("addrBtnTxt").textContent = "Adresse"; }, 1200);
+  }
+});
+
 // ---------- compass ----------
 let compassOn = false, refreshTimer = null;
 function refresh() {
@@ -1232,7 +1344,7 @@ async function enableCompass() {
   if ("ondeviceorientationabsolute" in window) window.addEventListener("deviceorientationabsolute", onOrient);
   else window.addEventListener("deviceorientation", onOrient);
 }
-$("arrowBtn").addEventListener("click", () => {
+$("rotBtn").addEventListener("click", () => {
   if (target) return;
   heading = (Math.round(heading / 45) * 45 + 45) % 360; headingSrc = "manuell"; lastMoveTs = 0; compassTs = 0;
   render(lastPt, lastSource, lastAcc, false);
