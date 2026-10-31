@@ -711,7 +711,10 @@ body {
 .next[data-state="near"] { --c: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); }
 .next[data-state="edge"] { --c: var(--edge); border-color: color-mix(in srgb, var(--edge) 60%, var(--line)); }
 .next[hidden] { display: none; }
-.arrow { width: 30px; height: 30px; transition: transform .4s ease; }
+.arrow { width: 30px; height: 30px; transition: transform .35s ease; display: block; }
+.arrowBtn { background: none; border: 0; padding: 4px; margin: -4px; color: inherit; cursor: pointer; border-radius: 8px; }
+.arrowBtn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.me-hdg { width: 56px; height: 56px; transition: transform .35s ease; pointer-events: none; }
 .next .to { font: 600 17px/1.1 var(--display); color: var(--fg); overflow-wrap: anywhere; }
 .next .dir { font: 500 12px/1.2 var(--body); color: var(--muted); margin-top: 2px; }
 .dist { text-align: right; font: 700 34px/1 var(--mono); font-variant-numeric: tabular-nums; }
@@ -786,7 +789,7 @@ body {
   </div>
   <div class="teil"><span class="nr" id="tnr"></span><span class="name" id="tname">Lehen</span></div>
   <div class="next" id="next">
-    <svg class="arrow" id="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L20 21 L12 16.5 L4 21 Z" fill="currentColor"/></svg>
+    <button class="arrowBtn" id="arrowBtn" type="button" aria-label="Richtung um 45 Grad drehen"><svg class="arrow" id="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L20 21 L12 16.5 L4 21 Z" fill="currentColor"/></svg></button>
     <div style="min-width:0">
       <div class="eyebrow"><span id="nextLbl">Nächster Stadtteil</span><button class="clear" id="clearTarget" type="button" hidden>Ziel aufheben</button></div>
       <div class="to" id="nextTo">–</div>
@@ -880,6 +883,37 @@ function nearestOther(pt, candidates) {
   return best;
 }
 const bearingTo = (pt, p) => (Math.atan2((p[0] - pt[0]) * KX, (p[1] - pt[1]) * KY) * 180 / Math.PI + 360) % 360;
+const D2R = Math.PI / 180;
+const offsetPt = (p, h, m) => [p[0] + Math.sin(h * D2R) * m / KX, p[1] + Math.cos(h * D2R) * m / KY];
+const distM = (a, b) => Math.hypot((a[0] - b[0]) * KX, (a[1] - b[1]) * KY);
+// first crossing of a ray (from pt, heading h) with any ring of g
+function rayHit(pt, h, g) {
+  const dx = Math.sin(h * D2R), dy = Math.cos(h * D2R), px = pt[0] * KX, py = pt[1] * KY;
+  let best = Infinity;
+  for (const poly of g) for (const ring of poly) for (let i = 0; i < ring.length - 1; i++) {
+    const ax = ring[i][0] * KX - px, ay = ring[i][1] * KY - py;
+    const ex = ring[i + 1][0] * KX - px - ax, ey = ring[i + 1][1] * KY - py - ay;
+    const den = dx * ey - dy * ex;
+    if (Math.abs(den) < 1e-9) continue;
+    const t = (ax * ey - ay * ex) / den, s = (ax * dy - ay * dx) / den;
+    if (t > 0.2 && s >= 0 && s <= 1 && t < best) best = t;
+  }
+  return isFinite(best) ? { t: best, p: [(px + dx * best) / KX, (py + dy * best) / KY] } : null;
+}
+// distance along the heading until the Stadtteil changes (or the city boundary is reached)
+function castAhead(pt, h) {
+  let start = pt, total = 0;
+  for (let i = 0; i < 5; i++) {
+    const cur = find(GEO.teile, start);
+    const hit = rayHit(start, h, cur ? cur.g : GEO.city);
+    if (!hit) return null;
+    total += hit.t;
+    const beyond = offsetPt(hit.p, h, 3), nxt = find(GEO.teile, beyond);
+    if (nxt !== cur) return { d: total, p: hit.p, other: nxt, leavesCity: !nxt };
+    start = beyond; total += 3;
+  }
+  return null;
+}
 function locate(pt) {
   const bez = find(GEO.bez, pt);
   const teil = find(GEO.teile, pt);
@@ -942,8 +976,11 @@ function syncLabels() {
 }
 map.on("zoomend", syncLabels); syncLabels();
 const acc = L.circle([DEMO[1], DEMO[0]], { radius: 0, color: "#2f8cff", weight: 1, fillOpacity: .12, interactive: false }).addTo(map);
-const borderLine = L.polyline([], { color: "#e0a43a", weight: 2.5, dashArray: "4 5", interactive: false }).addTo(map);
-const borderPt = L.circleMarker([0, 0], { radius: 5, color: "#e0a43a", weight: 2, fillColor: "#0d0f12", fillOpacity: 1, interactive: false });
+const borderLine = L.polyline([], { color: "#8fb6e8", weight: 2, opacity: .85, dashArray: "2 6", interactive: false }).addTo(map);
+const hdgIcon = L.divIcon({ className: "", iconSize: [56, 56], iconAnchor: [28, 28],
+  html: '<svg class="me-hdg" id="meHdg" viewBox="0 0 56 56"><path d="M28 3 L37 22 L28 18 L19 22 Z" fill="#2f8cff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>' });
+const hdgMarker = L.marker([DEMO[1], DEMO[0]], { icon: hdgIcon, interactive: false, keyboard: false }).addTo(map);
+const borderPt = L.circleMarker([0, 0], { radius: 6, color: "#8fb6e8", weight: 2.5, fillColor: "#0d0f12", fillOpacity: 1, interactive: false });
 const me = L.circleMarker([DEMO[1], DEMO[0]], { radius: 8, color: "#fff", weight: 3, fillColor: "#2f8cff", fillOpacity: 1 }).addTo(map);
 let highlighted = null, highlightedNr = null;
 
@@ -984,6 +1021,18 @@ function trendText(d, moving) {
 }
 
 let target = null, targetStart = null, lastPt = DEMO;
+// heading: direction of travel (GPS), else compass, else manual (tap the arrow)
+let heading = 0, headingSrc = "manuell", lastMoveTs = 0, compassHdg = null, compassTs = 0;
+let lastFix = null, lastAcc = 0, lastSource = "Beispiel: Heusteigstraße 58";
+function blendAngle(a, b, k) {
+  if (a === null) return b;
+  const d = ((b - a + 540) % 360) - 180;
+  return (a + d * k + 360) % 360;
+}
+function currentHeading() {
+  if (Date.now() - lastMoveTs < 5000) return;
+  if (compassHdg !== null && Date.now() - compassTs < 2000) { heading = compassHdg; headingSrc = "Kompass"; }
+}
 const targetLayer = L.polygon([], { color: "#8fb6e8", weight: 3, dashArray: "6 6", fill: false, interactive: false }).addTo(map);
 function setTarget(t, pt) {
   target = t; history = [];
@@ -1023,6 +1072,8 @@ function render(pt, source, accuracy, moving) {
     setTarget(null, pt);
   }
   me.setLatLng([pt[1], pt[0]]);
+  hdgMarker.setLatLng([pt[1], pt[0]]);
+  const mh = document.getElementById("meHdg"); if (mh) mh.style.transform = `rotate(${Math.round(heading)}deg)`;
   acc.setLatLng([pt[1], pt[0]]).setRadius(accuracy || 0);
   if (highlighted) { highlighted.setStyle({ fillOpacity: .32 }); teilOutlines[highlightedNr].setStyle({ weight: 2, color: "#e9e7df" }); }
   highlighted = r.teil ? teilLayers[r.teil.nr] : null;
@@ -1052,20 +1103,26 @@ function render(pt, source, accuracy, moving) {
       if (r.vborder)
         chips.append(chip(`Nächstes Viertel ${r.vborder.other.nr}: <b>${Math.round(r.vborder.d)} m</b>`));
     }
-    let b = r.border, goal = false;
+    let b, goal = false;
     if (target) {
       const n = nearestOnBoundary(pt, target.g);
       b = { d: n.d, p: n.p, bearing: bearingTo(pt, n.p), other: target, otherBez: null }; goal = true;
+      $("nextLbl").textContent = "Dein Ziel";
+      $("nextDir").textContent = `Richtung ${dirName(b.bearing)} · Luftlinie` + (b.other.b !== r.teil.b ? " · anderer Bezirk" : "");
+      $("arrow").style.transform = `rotate(${Math.round(b.bearing)}deg)`;
+    } else {
+      const a = castAhead(pt, heading);
+      b = a ? { d: a.d, p: a.p, bearing: heading, other: a.other, otherBez: null } : { d: r.border.d, p: r.border.p, bearing: heading, other: r.border.other };
+      $("nextLbl").textContent = headingSrc === "Bewegung" ? "In Bewegungsrichtung" : headingSrc === "Kompass" ? "In Blickrichtung" : "In Pfeilrichtung";
+      $("nextDir").textContent = `Kurs ${Math.round(heading)}° ${dirName(heading)} · ${headingSrc === "manuell" ? "Pfeil antippen zum Drehen" : headingSrc}` + (b.other && b.other.b !== r.teil.b ? " · anderer Bezirk" : "");
+      $("arrow").style.transform = `rotate(${Math.round(heading)}deg)`;
+      if (r.border && r.border.other) chips.append(chip(`Kürzeste Grenze: ${r.border.other.name} <b>${Math.round(r.border.d)} m</b>`));
     }
     $("next").hidden = false;
     $("next").dataset.goal = String(goal);
-    $("nextLbl").textContent = goal ? "Dein Ziel" : "Nächster Stadtteil";
-    const tgt = b.other ? `${b.other.nr} ${b.other.name}` : (b.otherBez ? `Bezirk ${b.otherBez.name}` : "Stadtgrenze");
-    $("nextTo").textContent = tgt;
-    $("nextDir").textContent = `Richtung ${dirName(b.bearing)} · Luftlinie` + (b.other && b.other.b !== r.teil.b ? " · anderer Bezirk" : "");
-    $("arrow").style.transform = `rotate(${Math.round(b.bearing)}deg)`;
+    $("nextTo").textContent = b.other ? `${b.other.nr} ${b.other.name}` : "Stadtgrenze";
     animateDistance(b.d);
-    const prog = goal ? (targetStart > 0 ? 1 - b.d / targetStart : 1) : 1 - b.d / 200;
+    const prog = goal ? (targetStart > 0 ? 1 - b.d / targetStart : 1) : 1 - b.d / 300;
     $("bar").style.width = Math.max(2, Math.min(100, prog * 100)) + "%";
     $("next").dataset.state = b.d < 15 ? "edge" : b.d < 50 ? "near" : "calm";
     $("trend").textContent = trendText(b.d, moving);
@@ -1077,6 +1134,7 @@ function render(pt, source, accuracy, moving) {
     $("bez").textContent = "Außerhalb von Stuttgart"; $("tname").textContent = "Kein Stadtgebiet";
     let b = r.border;
     if (target) { const n = nearestOnBoundary(pt, target.g); b = { d: n.d, p: n.p, bearing: bearingTo(pt, n.p), other: target }; }
+    else { const a = castAhead(pt, heading); if (a && a.other) b = { d: a.d, p: a.p, bearing: heading, other: a.other }; }
     if (b) {
       $("next").hidden = false; $("next").dataset.goal = String(!!target);
       $("nextLbl").textContent = target ? "Dein Ziel" : "Nächster Stadtteil";
@@ -1094,7 +1152,7 @@ function render(pt, source, accuracy, moving) {
   }
   $("src").textContent = accuracy
     ? `GPS-Genauigkeit ±${Math.round(accuracy)} m` + (r.border && r.border.d < accuracy ? " · Grenze liegt innerhalb der Ungenauigkeit" : "")
-    : (source === "Testlauf" ? "Simulierter Spaziergang über die Heusteigstraße nach Norden. Tippe auf die Karte, um ein Ziel zu wählen." : "Wähle unten ein Ziel oder starte Live. Während Live wählt ein Tipp auf die Karte das Ziel.");
+    : (source === "Testlauf" ? "Simulierter Spaziergang über die Heusteigstraße nach Norden. Die Meter gelten in Laufrichtung." : "Die Meter gelten in Pfeilrichtung. Live nutzt deine Bewegungsrichtung, im Stehen den Kompass.");
 }
 
 map.on("click", e => {
@@ -1104,7 +1162,7 @@ map.on("click", e => {
     if (t && t !== cur) { setTarget(t, lastPt); render(lastPt, $("mode").textContent, 0, false); }
     return;
   }
-  history = []; render(p, "Kartenpunkt");
+  history = []; lastSource = "Kartenpunkt"; lastAcc = 0; render(p, "Kartenpunkt");
 });
 $("nbs").addEventListener("click", e => {
   const b = e.target.closest(".nb"); if (!b) return;
@@ -1123,9 +1181,18 @@ async function startLive() {
   setMsg(""); history = [];
   $("live").setAttribute("aria-pressed", "true"); $("live").classList.add("live"); $("liveTxt").textContent = "Live · stoppen";
   try { wake = await navigator.wakeLock?.request("screen"); } catch (e) { wake = null; }
+  enableCompass();
   watchId = navigator.geolocation.watchPosition(p => {
-    const pt = [p.coords.longitude, p.coords.latitude];
-    render(pt, "Live", p.coords.accuracy, true);
+    const pt = [p.coords.longitude, p.coords.latitude], c = p.coords;
+    const moved = lastFix && distM(lastFix, pt) > Math.max(4, (c.accuracy || 0) * 0.6);
+    if (c.heading !== null && !isNaN(c.heading) && c.speed > 0.8) {
+      heading = blendAngle(heading, c.heading, 0.6); headingSrc = "Bewegung"; lastMoveTs = Date.now();
+    } else if (moved) {
+      heading = blendAngle(heading, bearingTo(lastFix, pt), 0.5); headingSrc = "Bewegung"; lastMoveTs = Date.now();
+    } else currentHeading();
+    if (!lastFix || moved) lastFix = pt;
+    lastAcc = c.accuracy; lastSource = "Live";
+    render(pt, "Live", c.accuracy, true);
     if (follow) map.panTo([pt[1], pt[0]], { animate: true });
   }, err => {
     stopLive();
@@ -1144,6 +1211,33 @@ function stopLive() {
   try { wake && wake.release(); } catch (e) {} wake = null;
 }
 
+// ---------- compass ----------
+let compassOn = false, refreshTimer = null;
+function refresh() {
+  if (refreshTimer) return;
+  refreshTimer = setTimeout(() => { refreshTimer = null; render(lastPt, lastSource, lastAcc, false); }, 150);
+}
+function onOrient(e) {
+  let h = null;
+  if (typeof e.webkitCompassHeading === "number") h = e.webkitCompassHeading;
+  else if (e.absolute && e.alpha !== null) h = 360 - e.alpha;
+  if (h === null) return;
+  h = (h + ((screen.orientation && screen.orientation.angle) || 0)) % 360;
+  compassHdg = blendAngle(compassHdg, h, 0.25); compassTs = Date.now();
+  if (Date.now() - lastMoveTs > 5000 && simTimer === null) { heading = compassHdg; headingSrc = "Kompass"; refresh(); }
+}
+async function enableCompass() {
+  if (compassOn) return; compassOn = true;
+  try { if (typeof DeviceOrientationEvent !== "undefined" && DeviceOrientationEvent.requestPermission) await DeviceOrientationEvent.requestPermission(); } catch (e) {}
+  if ("ondeviceorientationabsolute" in window) window.addEventListener("deviceorientationabsolute", onOrient);
+  else window.addEventListener("deviceorientation", onOrient);
+}
+$("arrowBtn").addEventListener("click", () => {
+  if (target) return;
+  heading = (Math.round(heading / 45) * 45 + 45) % 360; headingSrc = "manuell"; lastMoveTs = 0; compassTs = 0;
+  render(lastPt, lastSource, lastAcc, false);
+});
+
 // ---------- Testlauf ----------
 let simTimer = null;
 function startSim() {
@@ -1158,6 +1252,8 @@ function startSim() {
   let i = 0;
   const tick = () => {
     if (i >= pts.length) { stopSim(); return; }
+    if (i > 0) { heading = bearingTo(pts[i - 1], pts[i]); headingSrc = "Bewegung"; lastMoveTs = Date.now(); }
+    lastSource = "Testlauf"; lastAcc = 0;
     render(pts[i], "Testlauf", 0, true);
     if (follow) map.panTo([pts[i][1], pts[i][0]], { animate: true });
     i++; simTimer = setTimeout(tick, 650);
