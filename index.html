@@ -699,10 +699,10 @@ body {
 .bez { font: 600 15px/1.1 var(--display); letter-spacing: .02em; display: flex; align-items: center; gap: 8px; }
 .swatch { width: 10px; height: 10px; border-radius: 2px; background: var(--muted); flex: none; }
 .teil { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex-wrap: wrap; cursor: pointer; }
-.vtrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: 600 15px/1.2 var(--body); color: var(--muted); }
+.vtrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: 500 12.5px/1.2 var(--body); color: var(--muted); opacity: .85; }
 .vtrow:empty { display: none; }
-.vtrow b { font: 700 15px/1 var(--mono); color: var(--fg); }
-.vtrow .only { font: 500 12.5px/1 var(--body); color: var(--muted); }
+.vtrow b { font: 600 12.5px/1 var(--mono); color: var(--muted); }
+.vtrow .only { font: 500 12px/1 var(--body); color: var(--muted); }
 .plate.is-mini .vtrow { display: none; }
 .tag { font: 600 11px/1 var(--body); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 5px; }
 .tag.green { color: var(--green); border: 1px solid color-mix(in srgb, var(--green) 55%, transparent); }
@@ -720,7 +720,11 @@ body {
   font: 600 13px/1 var(--body); color: #fff; background: rgba(13,15,18,.86); border: 1.5px solid var(--c); border-radius: 999px; padding: 6px 10px; cursor: pointer; }
 .nbpill b { font: 700 13px/1 var(--mono); color: var(--c); }
 .nbpill.goal { background: #1f5fa8; border-color: #fff; --c: #fff; }
-.teil .nr { font: 700 22px/1 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.lbl { font: 500 14px/1 var(--body); color: var(--muted); letter-spacing: .01em; }
+.bez #bez { font: 600 17px/1.1 var(--display); }
+.bez .swatch { display: none; }
+.teil .tlbl { flex-basis: 100%; }
+.plate.is-mini .teil .tlbl { display: none; }
 .teil .name { font: 700 clamp(30px, 9vw, 44px)/1 var(--display); text-wrap: balance; overflow-wrap: anywhere; min-width: 0; }
 
 .next {
@@ -809,7 +813,8 @@ body {
   .arrow, .bar i, .toast { transition: none; }
 }
 .lbl-bez { font: 700 14px/1 var(--display); color: #fff; text-shadow: 0 0 4px #000, 0 0 2px #000; white-space: nowrap; letter-spacing: .03em; }
-.lbl-teil { font: 700 13px/1 var(--display); color: rgba(242,241,236,.55); text-shadow: 0 0 3px #000; white-space: nowrap; letter-spacing: .02em; }
+.lbl-teil { font-family: var(--display); font-weight: 700; line-height: 1; color: rgba(225,223,215,.34); text-shadow: 0 0 6px rgba(0,0,0,.5);
+  white-space: nowrap; letter-spacing: .03em; text-transform: uppercase; pointer-events: none; transition: font-size .2s; }
 .lbl-v { font: 700 10px/1 var(--mono); color: #fff; text-shadow: 0 0 3px #000, 0 0 2px #000; white-space: nowrap; }
 .leaflet-control-attribution { background: rgba(13,15,18,.7) !important; color: var(--muted) !important; }
 .leaflet-control-attribution a { color: var(--muted) !important; }
@@ -818,11 +823,11 @@ body {
 
 <header class="plate" id="plate" aria-live="polite">
   <div class="row1">
-    <span class="bez"><span class="swatch" id="swatch"></span><span id="bez">Stadtbezirk</span></span>
+    <span class="bez"><span class="swatch" id="swatch"></span><span class="lbl">Stadtbezirk:</span> <span id="bez">–</span></span>
     <button class="addrBtn" id="addrBtn" type="button" aria-busy="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"/></svg><span id="addrBtnTxt">Adresse</span></button>
   </div>
   <div class="teil" id="teilRow" title="Antippen zum Ein- und Ausklappen">
-    <span class="nr" id="tnr"></span><span class="name" id="tname">Lehen</span>
+    <span class="lbl tlbl">Stadtteil:</span><span class="name" id="tname">Lehen</span>
     <button class="fold" id="fold" type="button" aria-label="Kopfbereich einklappen">▴</button>
   </div>
   <div class="vtrow" id="vt"></div>
@@ -1002,17 +1007,28 @@ L.polygon(ll(GEO.city), { color: "#fff", weight: 3.5, fill: false, interactive: 
 const bezLabels = L.layerGroup(GEO.bez.map(b => L.marker([b.lp[1], b.lp[0]], {
   interactive: false, icon: L.divIcon({ className: "", html: `<div class="lbl-bez" style="transform:translate(-50%,-50%)">${b.name}</div>` })
 })));
-const teilLabels = L.layerGroup(GEO.teile.map(t => L.marker([t.lp[1], t.lp[0]], {
-  interactive: false, icon: L.divIcon({ className: "", html: `<div class="lbl-teil" style="transform:translate(-50%,-50%)">${t.nr} ${t.name}</div>` })
-})));
-const viertelLabels = L.layerGroup(GEO.viertel.map(v => L.marker([v.lp[1], v.lp[0]], {
-  interactive: false, icon: L.divIcon({ className: "", html: `<div class="lbl-v" style="transform:translate(-50%,-50%)">${v.nr}</div>` })
-})));
+// Stadtteilnamen grau auf ihrer Fläche, Schriftgröße passend zur Flächengröße
+const teilLabels = L.layerGroup(GEO.teile.map(t => {
+  const m = L.marker([t.lp[1], t.lp[0]], { interactive: false, keyboard: false,
+    icon: L.divIcon({ className: "", iconSize: null, html: `<div class="lbl-teil" style="transform:translate(-50%,-50%)">${t.name}</div>` }) });
+  m._teil = t; return m;
+}));
+function sizeTeilLabels() {
+  teilLabels.eachLayer(m => {
+    const el = m.getElement() && m.getElement().firstChild; if (!el) return;
+    const b = m._teil.bb;
+    const a = map.latLngToContainerPoint([b[1], b[0]]), c = map.latLngToContainerPoint([b[3], b[2]]);
+    const w = Math.abs(c.x - a.x), h = Math.abs(a.y - c.y);
+    const fs = Math.min(w * 0.75 / (m._teil.name.length * 0.62), h * 0.28, 44);
+    el.style.fontSize = Math.round(fs) + "px";
+    el.style.display = fs < 10 ? "none" : "";
+  });
+}
 function syncLabels() {
   const z = map.getZoom();
-  z < 14 ? bezLabels.addTo(map) : bezLabels.remove();
-  z >= 14 ? teilLabels.addTo(map) : teilLabels.remove();
-  z >= 16 ? viertelLabels.addTo(map) : viertelLabels.remove();
+  z < 13 ? bezLabels.addTo(map) : bezLabels.remove();
+  z >= 13 ? teilLabels.addTo(map) : teilLabels.remove();
+  if (z >= 13) sizeTeilLabels();
 }
 map.on("zoomend", () => { syncLabels(); if (typeof lastPt !== "undefined" && pills.size) render(lastPt, lastSource, lastAcc, false); }); syncLabels();
 const acc = L.circle([DEMO[1], DEMO[0]], { radius: 0, color: "#2f8cff", weight: 1, fillOpacity: .12, interactive: false }).addTo(map);
@@ -1144,9 +1160,8 @@ function render(pt, source, accuracy, moving) {
   lastTeil = r.teil ? r.teil.nr : null; lastViertel = r.viertel ? r.viertel.nr : null;
 
   // oben: Bezirk (live), Stadtteil, Viertel
-  if (r.bez) { $("swatch").style.background = COL[r.bez.nr]; $("bez").textContent = `Stadtbezirk ${r.bez.nr} ${r.bez.name}`; }
-  else { $("swatch").style.background = "var(--muted)"; $("bez").textContent = "Außerhalb von Stuttgart"; }
-  $("tnr").textContent = r.teil ? r.teil.nr : "";
+  if (r.bez) { $("swatch").style.background = COL[r.bez.nr]; $("bez").textContent = r.bez.name; }
+  else { $("swatch").style.background = "var(--muted)"; $("bez").textContent = "außerhalb von Stuttgart"; }
   $("tname").textContent = r.teil ? r.teil.name : "Kein Stadtgebiet";
   $("vt").innerHTML = r.viertel ? `<span>Stadtviertel <b>${r.viertel.nr}</b></span>`
     + (r.viertel.nr.endsWith("9") ? `<span class="tag green">Grünfläche</span>` : "")
