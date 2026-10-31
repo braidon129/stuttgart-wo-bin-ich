@@ -699,8 +699,11 @@ body {
 .bez { font: 600 15px/1.1 var(--display); letter-spacing: .02em; display: flex; align-items: center; gap: 8px; }
 .swatch { width: 10px; height: 10px; border-radius: 2px; background: var(--muted); flex: none; }
 .teil { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex-wrap: wrap; cursor: pointer; }
-.teil .vt { font: 600 15px/1 var(--body); color: var(--muted); white-space: nowrap; }
-.teil .vt b { font: 700 15px/1 var(--mono); color: var(--fg); }
+.vtrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: 600 15px/1.2 var(--body); color: var(--muted); }
+.vtrow:empty { display: none; }
+.vtrow b { font: 700 15px/1 var(--mono); color: var(--fg); }
+.vtrow .only { font: 500 12.5px/1 var(--body); color: var(--muted); }
+.plate.is-mini .vtrow { display: none; }
 .tag { font: 600 11px/1 var(--body); letter-spacing: .06em; text-transform: uppercase; padding: 4px 7px; border-radius: 5px; }
 .tag.green { color: var(--green); border: 1px solid color-mix(in srgb, var(--green) 55%, transparent); }
 .row1 { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -751,6 +754,8 @@ body {
 .addr .street { font: 600 18px/1.2 var(--display); letter-spacing: .01em; overflow-wrap: anywhere; }
 .addr .city { font: 500 13px/1.3 var(--body); color: var(--muted); }
 .addr .street small { font: 500 14px/1.2 var(--body); color: var(--muted); margin-left: 6px; letter-spacing: 0; }
+.addr .hood { font: 500 13px/1.3 var(--body); color: var(--fg); }
+.addr .hood b { font-weight: 600; }
 .addr .area { font: 600 13px/1.3 var(--body); color: var(--green); }
 .addr[data-far="true"] { border-left-color: var(--warn); }
 .nbs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-inline: -2px; padding: 2px; }
@@ -817,10 +822,11 @@ body {
     <button class="addrBtn" id="addrBtn" type="button" aria-busy="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" fill="currentColor"/></svg><span id="addrBtnTxt">Adresse</span></button>
   </div>
   <div class="teil" id="teilRow" title="Antippen zum Ein- und Ausklappen">
-    <span class="nr" id="tnr"></span><span class="name" id="tname">Lehen</span><span class="vt" id="vt"></span>
+    <span class="nr" id="tnr"></span><span class="name" id="tname">Lehen</span>
     <button class="fold" id="fold" type="button" aria-label="Kopfbereich einklappen">▴</button>
   </div>
-  <div class="addr" id="addr" hidden><span class="street" id="addrStreet"></span><span class="area" id="addrArea" hidden></span><span class="city" id="addrCity"></span></div>
+  <div class="vtrow" id="vt"></div>
+  <div class="addr" id="addr" hidden><span class="street" id="addrStreet"></span><span class="area" id="addrArea" hidden></span><span class="hood" id="addrHood" hidden></span><span class="city" id="addrCity"></span></div>
   <div class="next" id="next">
     <div style="min-width:0">
       <div class="head">
@@ -1008,7 +1014,7 @@ function syncLabels() {
   z >= 14 ? teilLabels.addTo(map) : teilLabels.remove();
   z >= 16 ? viertelLabels.addTo(map) : viertelLabels.remove();
 }
-map.on("zoomend", syncLabels); syncLabels();
+map.on("zoomend", () => { syncLabels(); if (typeof lastPt !== "undefined" && pills.size) render(lastPt, lastSource, lastAcc, false); }); syncLabels();
 const acc = L.circle([DEMO[1], DEMO[0]], { radius: 0, color: "#2f8cff", weight: 1, fillOpacity: .12, interactive: false }).addTo(map);
 const borderLine = L.polyline([], { color: "#8fb6e8", weight: 2, opacity: .85, dashArray: "2 6", interactive: false }).addTo(map);
 const hdgIcon = L.divIcon({ className: "", iconSize: [56, 56], iconAnchor: [28, 28],
@@ -1055,6 +1061,7 @@ function trendText(d, moving) {
 }
 
 let target = null, targetStart = null, lastPt = DEMO;
+const VCOUNT = {}; GEO.viertel.forEach(v => { const k = v.nr.slice(0, 3); VCOUNT[k] = (VCOUNT[k] || 0) + 1; });
 // heading: direction of travel (GPS), else compass, else manual (tap the arrow)
 let heading = 0, headingSrc = "manuell", lastMoveTs = 0, compassHdg = null, compassTs = 0;
 let lastFix = null, lastAcc = 0, lastSource = "Beispiel: Heusteigstraße 58";
@@ -1087,8 +1094,15 @@ function renderPills(pt, list) {
   const keep = new Set();
   for (const x of list) {
     const nr = x.t.nr; keep.add(nr);
-    const away = x.d > 1 ? [(x.p[0] - pt[0]) / x.d, (x.p[1] - pt[1]) / x.d] : [0, 0];
-    const pos = [x.p[0] + away[0] * 22, x.p[1] + away[1] * 22];   // 22 m hinter der Grenze, im Nachbar-Stadtteil
+    // Schild hinter die Grenze setzen, aber immer mind. 80 px vom eigenen Pfeil entfernt
+    const me0 = map.latLngToContainerPoint([pt[1], pt[0]]);
+    let bp = map.latLngToContainerPoint([x.p[1], x.p[0]]);
+    let vx = bp.x - me0.x, vy = bp.y - me0.y, len = Math.hypot(vx, vy);
+    if (len < 1) { vx = 0; vy = -1; len = 1; }
+    const want = Math.max(len + 30, 80);
+    const posPx = L.point(me0.x + vx / len * want, me0.y + vy / len * want);
+    const ll0 = map.containerPointToLatLng(posPx);
+    const pos = [ll0.lng, ll0.lat];
     const html = `<div class="nbpill${target === x.t ? " goal" : ""}">${esc(x.t.name)} <b>${Math.round(x.d)} m</b></div>`;
     let m = pills.get(nr);
     if (!m) {
@@ -1134,7 +1148,9 @@ function render(pt, source, accuracy, moving) {
   else { $("swatch").style.background = "var(--muted)"; $("bez").textContent = "Außerhalb von Stuttgart"; }
   $("tnr").textContent = r.teil ? r.teil.nr : "";
   $("tname").textContent = r.teil ? r.teil.name : "Kein Stadtgebiet";
-  $("vt").innerHTML = r.viertel ? `Viertel <b>${r.viertel.nr}</b>` + (r.viertel.nr.endsWith("9") ? ` <span class="tag green">Grünfläche</span>` : "") : "";
+  $("vt").innerHTML = r.viertel ? `<span>Stadtviertel <b>${r.viertel.nr}</b></span>`
+    + (r.viertel.nr.endsWith("9") ? `<span class="tag green">Grünfläche</span>` : "")
+    + (VCOUNT[r.teil.nr] === 1 ? `<span class="only">einziges Viertel im Stadtteil</span>` : "") : "";
 
   // Kasten: geradeaus bis zum nächsten Stadtteil, oder Luftlinie zum Ziel
   let b = null;
@@ -1168,7 +1184,11 @@ function render(pt, source, accuracy, moving) {
   }
 
   // Meter zu den nächsten Stadtteilen direkt auf der Karte
-  renderPills(pt, neighbours(pt, r.teil));
+  const nb = neighbours(pt, r.teil), show = nb.slice(0, 1);
+  if (target && !show.some(x => x.t === target)) {
+    const n = nearestOnBoundary(pt, target.g); show.push({ t: target, d: n.d, p: n.p });
+  }
+  renderPills(pt, show);
 
   // GPS nur melden, wenn es ungenau ist
   const warn = accuracy && accuracy > 20;
@@ -1271,8 +1291,9 @@ async function nomi(params) {
   } finally { clearTimeout(to); }
 }
 const wait = ms => new Promise(r => setTimeout(r, ms));
-function showAddr(st, city, area, far) {
+function showAddr(st, city, area, far, hood) {
   $("addrStreet").innerHTML = st; $("addrCity").textContent = city;
+  $("addrHood").innerHTML = hood ? `Gegend: <b>${esc(hood)}</b> <span style="color:var(--muted)">(OpenStreetMap)</span>` : ""; $("addrHood").hidden = !hood;
   $("addrArea").textContent = area || ""; $("addrArea").hidden = !area;
   $("addr").dataset.far = String(!!far); $("addr").hidden = false;
 }
@@ -1280,7 +1301,7 @@ const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;",
 $("addrBtn").addEventListener("click", async () => {
   if (addrBusy) return;
   const pt = lastPt;
-  if (addrCache && distM(addrCache.pt, pt) < 10) { showAddr(addrCache.st, addrCache.city, addrCache.area, addrCache.far); return; }
+  if (addrCache && distM(addrCache.pt, pt) < 10) { showAddr(addrCache.st, addrCache.city, addrCache.area, addrCache.far, addrCache.hood); return; }
   addrBusy = true; $("addrBtn").setAttribute("aria-busy", "true"); $("addrBtnTxt").textContent = "Sucht …";
   showAddr("Adresse wird gesucht …", "", "", false);
   const q = `&lat=${pt[1].toFixed(6)}&lon=${pt[0].toFixed(6)}`;
@@ -1312,8 +1333,9 @@ $("addrBtn").addEventListener("click", async () => {
     }
     const city = [a.postcode, a.city || a.town || a.village || a.municipality].filter(Boolean).join(" ")
       + (gpsAcc ? ` · GPS ±${Math.round(gpsAcc)} m` : "") + (gpsAcc > 20 ? " · zu ungenau für Hausnummer" : "");
-    addrCache = { pt, st, city, area, far };
-    showAddr(st, city, area, far);
+    const hood = a.quarter || a.neighbourhood || "";
+    addrCache = { pt, st, city, area, far, hood };
+    showAddr(st, city, area, far, hood);
   } catch (e) {
     showAddr("Adresse gerade nicht abrufbar", location.protocol === "https:" && location.hostname.endsWith("github.io")
       ? "Keine Verbindung zum Adressdienst. Prüfe das Internet und tippe erneut."
