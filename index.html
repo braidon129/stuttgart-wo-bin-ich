@@ -1077,6 +1077,8 @@ function trendText(d, moving) {
 }
 
 let target = null, targetStart = null, lastPt = DEMO;
+// Volksnamen nur dort, wo sie geprüft deckungsgleich mit einem Stadtviertel sind
+const VNAME = { "1021": "Bohnenviertel", "1022": "Gerberviertel" };
 const VCOUNT = {}; GEO.viertel.forEach(v => { const k = v.nr.slice(0, 3); VCOUNT[k] = (VCOUNT[k] || 0) + 1; });
 // heading: direction of travel (GPS), else compass, else manual (tap the arrow)
 let heading = 0, headingSrc = "manuell", lastMoveTs = 0, compassHdg = null, compassTs = 0;
@@ -1163,7 +1165,7 @@ function render(pt, source, accuracy, moving) {
   if (r.bez) { $("swatch").style.background = COL[r.bez.nr]; $("bez").textContent = r.bez.name; }
   else { $("swatch").style.background = "var(--muted)"; $("bez").textContent = "außerhalb von Stuttgart"; }
   $("tname").textContent = r.teil ? r.teil.name : "Kein Stadtgebiet";
-  $("vt").innerHTML = r.viertel ? `<span>Stadtviertel <b>${r.viertel.nr}</b></span>`
+  $("vt").innerHTML = r.viertel ? `<span>Stadtviertel <b>${r.viertel.nr}</b>${VNAME[r.viertel.nr] ? ` (${VNAME[r.viertel.nr]})` : ""}</span>`
     + (r.viertel.nr.endsWith("9") ? `<span class="tag green">Grünfläche</span>` : "")
     + (VCOUNT[r.teil.nr] === 1 ? `<span class="only">einziges Viertel im Stadtteil</span>` : "") : "";
 
