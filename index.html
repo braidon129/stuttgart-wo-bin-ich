@@ -871,7 +871,7 @@ const COL = {
   "16": "#5f8a2e", "17": "#a64fa0", "18": "#2f8a84", "19": "#9a7036", "20": "#5a4a9e",
   "21": "#3a9440", "22": "#8f3d55", "23": "#3a72a8"
 };
-const DEMO = [9.175962, 48.7683799];
+const DEMO = [9.1797, 48.7784];   // Stadtmitte (Schlossplatz), bis der echte Standort da ist
 // Testlauf: Heusteigstraße von Lehen (Nr. 70) nach Norden ins Heusteigviertel (Nr. 45)
 const SIM_PATH = [[9.1746373, 48.7678829], [9.175962, 48.7683799], [9.1778484, 48.7689244], [9.1792, 48.7695]];
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1082,7 +1082,7 @@ const VNAME = { "1021": "Bohnenviertel", "1022": "Gerberviertel" };
 const VCOUNT = {}; GEO.viertel.forEach(v => { const k = v.nr.slice(0, 3); VCOUNT[k] = (VCOUNT[k] || 0) + 1; });
 // heading: direction of travel (GPS), else compass, else manual (tap the arrow)
 let heading = 0, headingSrc = "manuell", lastMoveTs = 0, compassHdg = null, compassTs = 0;
-let lastFix = null, lastAcc = 0, lastSource = "Beispiel: Heusteigstraße 58";
+let lastFix = null, lastAcc = 0, lastSource = "Stadtmitte";
 function blendAngle(a, b, k) {
   if (a === null) return b;
   const d = ((b - a + 540) % 360) - 180;
@@ -1236,7 +1236,7 @@ $("mini").addEventListener("click", toggleFold);
 // ---------- live GPS ----------
 let watchId = null, follow = true, wake = null;
 function setMsg(t) { $("msg").textContent = t || ""; $("msg").hidden = !t; }
-async function startLive() {
+async function startLive(auto) {
   stopSim();
   if (!("geolocation" in navigator)) { setMsg("Dieser Browser liefert keinen Standort. Tippe auf die Karte oder nutze den Testlauf."); return; }
   setMsg(""); history = [];
@@ -1257,6 +1257,7 @@ async function startLive() {
     if (follow) map.panTo([pt[1], pt[0]], { animate: true });
   }, err => {
     stopLive();
+    if (auto) return;
     const where = location.protocol === "https:" ? "" : (/claude\.ai|claudeusercontent/.test(location.host) ? "claude" : "local");
     setMsg(err.code === 1
       ? (window.isSecureContext === false || where === "local"
@@ -1424,6 +1425,13 @@ $("follow").addEventListener("click", () => {
   $("follow").textContent = follow ? "Folgen" : "Folgen aus";
 });
 
-render(DEMO, "Beispiel: Heusteigstraße 58");
+render(DEMO, "Stadtmitte");
+// Beim Öffnen direkt live gehen, wenn der Browser den Standort erlaubt (oder einmal fragen darf)
+(async () => {
+  if (!("geolocation" in navigator) || !window.isSecureContext) return;
+  let state = "prompt";
+  try { state = (await navigator.permissions.query({ name: "geolocation" })).state; } catch (e) {}
+  if (state !== "denied") startLive(true);
+})();
 </script>
 </body></html>
