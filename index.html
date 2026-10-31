@@ -1032,11 +1032,15 @@ function syncLabels() {
 }
 map.on("zoomend", () => { syncLabels(); if (typeof lastPt !== "undefined" && pills.size) render(lastPt, lastSource, lastAcc, false); }); syncLabels();
 const acc = L.circle([DEMO[1], DEMO[0]], { radius: 0, color: "#2f8cff", weight: 1, fillOpacity: .12, interactive: false }).addTo(map);
-const borderLine = L.polyline([], { color: "#8fb6e8", weight: 2, opacity: .85, dashArray: "2 6", interactive: false }).addTo(map);
+// Entfernungslinie als Kette kleiner blauer Kugeln (dunkler Rand unten, helle Füllung oben, gleiches Raster)
+const DOTS = { dashArray: "0.1 13", lineCap: "round", lineJoin: "round", interactive: false };
+const dotsRim = L.polyline([], { ...DOTS, color: "#0b4fb3", weight: 9.5, opacity: .95 }).addTo(map);
+const dotsFill = L.polyline([], { ...DOTS, color: "#3ea0ff", weight: 6.5, opacity: 1 }).addTo(map);
+const borderLine = { setLatLngs(l) { dotsRim.setLatLngs(l); dotsFill.setLatLngs(l); return this; } };
 const hdgIcon = L.divIcon({ className: "", iconSize: [56, 56], iconAnchor: [28, 28],
   html: '<svg class="me-hdg" id="meHdg" viewBox="0 0 56 56"><path d="M28 3 L37 22 L28 18 L19 22 Z" fill="#2f8cff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>' });
 const hdgMarker = L.marker([DEMO[1], DEMO[0]], { icon: hdgIcon, interactive: false, keyboard: false }).addTo(map);
-const borderPt = L.circleMarker([0, 0], { radius: 6, color: "#8fb6e8", weight: 2.5, fillColor: "#0d0f12", fillOpacity: 1, interactive: false });
+const borderPt = L.circleMarker([0, 0], { radius: 8, color: "#6b6f78", weight: 3, fillColor: "#ffffff", fillOpacity: 1, interactive: false });
 const me = L.circleMarker([DEMO[1], DEMO[0]], { radius: 8, color: "#fff", weight: 3, fillColor: "#2f8cff", fillOpacity: 1 }).addTo(map);
 let highlighted = null, highlightedNr = null;
 
