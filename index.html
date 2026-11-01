@@ -109,7 +109,7 @@ button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 /* Namen auf der Karte */
 .lbl-teil { font-family: var(--display); font-weight: 700; line-height: 1; color: rgba(255,255,255,.86);
   text-shadow: 0 0 1px rgba(0,0,0,.75), 0 1px 2px rgba(0,0,0,.55), 0 0 10px rgba(0,0,0,.28);
-  white-space: nowrap; letter-spacing: .06em; text-transform: uppercase; pointer-events: none; }
+  white-space: nowrap; letter-spacing: .06em; text-transform: uppercase; pointer-events: none; text-align: center; line-height: 1.05; }
 .lbl-bez { font: 700 15px/1 var(--display); color: #fff; text-shadow: 0 1px 5px rgba(0,0,0,.7); white-space: nowrap; letter-spacing: .04em; text-transform: uppercase; pointer-events: none; }
 
 /* runde Kartenknöpfe rechts */
@@ -518,7 +518,7 @@ function sizeLabels() {
     const fs = Math.min(m._fs * Math.pow(2, z - m._z), want === "teil" ? 24 : 19);
     const el = m.getElement();
     el.style.fontSize = Math.round(fs) + "px";
-    el.style.visibility = fs < 10 ? "hidden" : "visible";
+    el.style.visibility = fs < (m._min || 10) ? "hidden" : "visible";
   }
 }
 // Rechteck-Zuschnitt (Sutherland-Hodgman) eines Rings in Bildschirmkoordinaten
@@ -540,7 +540,7 @@ function clipRect(ring, x0, y0, x1, y1) {
   return out;
 }
 // wie groß darf ein waagrechter Name an Punkt (x,y) sein? (Abstand zu den Kanten nach links/rechts/oben/unten)
-function fitAt(edges, x, y, len, maxFs) {
+function fitAt(edges, x, y, len, maxFs, lines = 1) {
   let cross = 0, dl = Infinity, dr = Infinity, du = Infinity, dd = Infinity;
   for (const [ax, ay, bx, by] of edges) {
     if ((ay > y) !== (by > y)) {
@@ -553,7 +553,37 @@ function fitAt(edges, x, y, len, maxFs) {
     }
   }
   if (!(cross & 1)) return 0;
-  return Math.min(2 * Math.min(dl, dr) * 0.88 / (len * 0.78), 2 * Math.min(du, dd) * 0.42, maxFs);
+  return Math.min(2 * Math.min(dl, dr) * 0.88 / (len * 0.78), 2 * Math.min(du, dd) * 0.42 / (lines === 1 ? 1 : 2.1), maxFs);
+}
+// Namen ein- oder zweizeilig (Umbruch an Leerzeichen/Bindestrich), je nachdem was größer passt
+function layoutsFor(name) {
+  const out = [{ html: esc(name), len: name.length, lines: 1 }];
+  const cuts = [...name.matchAll(/[ -]/g)].map(x => x.index);
+  if (cuts.length) {
+    const mid = name.length / 2, i = cuts.reduce((a, b) => Math.abs(b - mid) < Math.abs(a - mid) ? b : a);
+    const a = name.slice(0, name[i] === "-" ? i + 1 : i), b = name.slice(i + 1);
+    out.push({ html: esc(a) + "<br>" + esc(b), len: Math.max(a.length, b.length), lines: 2 });
+  }
+  return out;
+}
+// direkte Nachbar-Stadtteile (berühren sich), einmal pro Stadtteil berechnet
+const adjCache = new Map();
+function adjOf(t) {
+  if (adjCache.has(t.nr)) return adjCache.get(t.nr);
+  const out = new Set(), pad = 0.0003, b = t.bb;
+  for (const o of GEO.teile) {
+    if (o === t || o.bb[0] > b[2] + pad || o.bb[2] < b[0] - pad || o.bb[1] > b[3] + pad || o.bb[3] < b[1] - pad) continue;
+    let hit = false;
+    for (const poly of o.g) {
+      for (const q of poly[0]) {
+        if (q[0] < b[0] - pad || q[0] > b[2] + pad || q[1] < b[1] - pad || q[1] > b[3] + pad) continue;
+        if (nearestOnBoundary(q, t.g).d < 12) { hit = true; break; }
+      }
+      if (hit) break;
+    }
+    if (hit) out.add(o.nr);
+  }
+  adjCache.set(t.nr, out); return out;
 }
 function placeLabels() {
   if (!mapReady) return;
@@ -564,9 +594,10 @@ function placeLabels() {
   const cr = cv.getBoundingClientRect();
   const obst = [{ l: me.x - 28, r: me.x + 28, t: me.y - 34, b: me.y + 30 }];
   for (const [, pm] of pills) { const q = pm.getElement().getBoundingClientRect(); obst.push({ l: q.left - cr.left - 6, r: q.right - cr.left + 6, t: q.top - cr.top - 4, b: q.bottom - cr.top + 4 }); }
-  const clear = (x, y, fs, len) => { const hw = len * 0.39 * fs, hh = fs / 2;
+  const clear = (x, y, fs, len, lines = 1) => { const hw = len * 0.39 * fs, hh = fs * lines * 0.53;
     return obst.every(o => x + hw < o.l || x - hw > o.r || y + hh < o.t || y - hh > o.b); };
   const low = z < 12, set = low ? bezLabels : teilLabels, maxFs = low ? 19 : 24;
+  const curT = lastResult && lastResult.teil, nb = curT ? adjOf(curT) : new Set();
   for (const m of set) {
     const t = m._teil, el = m.getElement();
     if (t.bb[2] < bnd.getWest() || t.bb[0] > bnd.getEast() || t.bb[3] < bnd.getSouth() || t.bb[1] > bnd.getNorth()) {
@@ -581,22 +612,32 @@ function placeLabels() {
       }
     }
     if (!edges.length) { m._fs = 0; el.style.visibility = "hidden"; continue; }
-    const len = t.name.length;
-    // Kandidat 1: der feste Namenspunkt (ruhiger), wenn er gut passt
-    const lp = map.project(t.lp); let best = { fs: fitAt(edges, lp.x, lp.y, len, maxFs), x: lp.x, y: lp.y };
-    if (!clear(lp.x, lp.y, best.fs, len)) best.fs = 0;
-    const step = Math.max(10, Math.sqrt((bx1 - bx0) * (by1 - by0) / 700));
-    let top = { fs: 0 };
-    for (let y = by0 + step / 2; y < by1; y += step) for (let x = bx0 + step / 2; x < bx1; x += step) {
-      const f0 = fitAt(edges, x, y, len, maxFs); if (f0 <= top.fs) continue;
+    // aktueller Stadtteil und seine direkten Nachbarn bekommen immer einen Namen (notfalls klein)
+    const must = !low && (t === curT || nb.has(t.nr)), MIN = must ? 8 : 9.5;
+    const lays = m._lays || (m._lays = layoutsFor(t.name));
+    const lp = map.project(t.lp);
+    let best = { fs: 0 }, top = { fs: 0 }, any = { f: -1 };
+    for (const L of lays) {           // Kandidat 1: der feste Namenspunkt (ruhiger), wenn er gut passt
+      const f = fitAt(edges, lp.x, lp.y, L.len, maxFs, L.lines);
+      if (f > best.fs && clear(lp.x, lp.y, f, L.len, L.lines)) best = { fs: f, x: lp.x, y: lp.y, L };
+    }
+    const step = Math.max(8, Math.sqrt((bx1 - bx0) * (by1 - by0) / 800));
+    for (let y = by0 + step / 2; y < by1; y += step) for (let x = bx0 + step / 2; x < bx1; x += step) for (const L of lays) {
+      const f0 = fitAt(edges, x, y, L.len, maxFs, L.lines);
+      if (f0 > any.f && (f0 > 0 || any.f < 0) && clear(x, y, Math.max(f0, MIN), L.len, L.lines)) any = { f: f0, x, y, L };
+      if (f0 <= top.fs) continue;
       // passt der Name hier nur kleiner, ohne Pfeil/Schild zu verdecken? dann eben etwas kleiner
-      for (const fs of [f0, f0 * .78, f0 * .6]) if (fs > top.fs && fs >= 10 && clear(x, y, fs, len)) { top = { fs, x, y }; break; }
+      for (const fs of [f0, f0 * .78, f0 * .6]) if (fs > top.fs && fs >= MIN && clear(x, y, fs, L.len, L.lines)) { top = { fs, x, y, L }; break; }
     }
     if (top.fs > best.fs * 1.18) best = top;
-    m._fs = best.fs; m._z = z;
-    if (best.fs >= 10) m.setLngLat(map.unproject([best.x, best.y]));
-    el.style.fontSize = Math.round(best.fs) + "px";
-    el.style.visibility = best.fs < 10 ? "hidden" : "visible";
+    if (best.fs < MIN && must && any.f >= 0) best = { fs: MIN, x: any.x, y: any.y, L: any.L };   // klein, aber lesbar
+    m._fs = best.fs; m._z = z; m._min = MIN;
+    if (best.fs >= MIN) {
+      m.setLngLat(map.unproject([best.x, best.y]));
+      if (m._html !== best.L.html) { el.innerHTML = best.L.html; m._html = best.L.html; }
+    }
+    el.style.fontSize = (Math.round(best.fs * 2) / 2) + "px";
+    el.style.visibility = best.fs < MIN ? "hidden" : "visible";
   }
 }
 
@@ -627,9 +668,9 @@ function buildMap(style) {
       "fill-color": ["match", ["get", "ci"], 0, PALETTE[0], 1, PALETTE[1], 2, PALETTE[2], 3, PALETTE[3], 4, PALETTE[4], PALETTE[5]],
       "fill-opacity": 1 } });
     add({ id: "teile-hi", type: "fill", source: "teile", paint: { "fill-color": "#ffffff", "fill-opacity": ["case", cur, .07, 0] } });
-    add({ id: "viertel-line", type: "line", source: "vlines", minzoom: 12.5, layout: { "line-cap": "butt" },
-      paint: { "line-color": "#0b0d12", "line-opacity": ["interpolate", ["linear"], ["zoom"], 12.5, .55, 14, .8],
-        "line-width": ["interpolate", ["linear"], ["zoom"], 12.5, 1.1, 15, 1.7, 18, 2.2], "line-dasharray": [3, 2] } });
+    add({ id: "viertel-line", type: "line", source: "vlines", minzoom: 12.2, layout: { "line-cap": "butt" },
+      paint: { "line-color": "#0b0d12", "line-opacity": ["interpolate", ["linear"], ["zoom"], 12.2, .6, 14, .8],
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12.2, 1.1, 15, 1.7, 18, 2.2], "line-dasharray": [3, 2] } });
     // Herausgezoomt: dieselbe Ansicht eine Ebene höher. Jeder Bezirk eine matte Farbe und ein eigener
     // geschlossener Ring (innen weiß, beidseitig schwarz); die Stadtteile treten dabei zurück.
     const zB = (lo, hi) => ["interpolate", ["linear"], ["zoom"], 11.4, lo, 12.2, hi];
@@ -728,7 +769,7 @@ function cameraForTeil(t, bearing) {
   const W = map.getContainer().clientWidth, H = map.getContainer().clientHeight - 72;
   const mpp = Math.max((x1 - x0) / (W * FILL), (y1 - y0) / (H * FILL), 0.1);
   const zoom = Math.log2(40075016.686 * Math.cos(center[1] * D2R) / (512 * mpp));
-  return { center, zoom: Math.max(12, Math.min(16.8, zoom)), bearing };
+  return { center, zoom: Math.max(12.4, Math.min(16.8, zoom)), bearing };
 }
 function moveCamera(force) {
   if (!mapReady || (!follow && !force)) return;
@@ -738,7 +779,7 @@ function moveCamera(force) {
   if (t) {
     if (force || framedNr !== t.nr) {                  // neuer Stadtteil (oder Zentrieren gedrückt): neu einrahmen
       framedNr = t.nr;
-      map.easeTo({ ...cameraForTeil(t, orient === "heading" ? heading : (orient === "north" && force ? 0 : bearing)), duration: dur, essential: true });
+      map.easeTo({ ...cameraForTeil(t, orient === "heading" ? heading : 0), duration: dur, essential: true });
       return;
     }
     if (orient === "heading") {                         // im selben Stadtteil nur mitdrehen
